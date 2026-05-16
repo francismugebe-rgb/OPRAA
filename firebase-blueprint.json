@@ -1,0 +1,52 @@
+{
+  "entities": {
+    "Profile": {
+      "title": "Profile",
+      "description": "A dating profile displayed as a news article",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name" },
+        "age": { "type": "number", "description": "Age" },
+        "gender": { "type": "string", "description": "Gender identity" },
+        "city": { "type": "string", "description": "Location city" },
+        "bio": { "type": "string", "description": "Biography/Profile content in markdown" },
+        "interests": { "type": "array", "description": "List of interests" },
+        "photoUrl": { "type": "string", "description": "URL to profile photo" },
+        "status": { "type": "string", "enum": ["pending", "approved"], "description": "Submission status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" },
+        "authorId": { "type": "string", "description": "UID of the user who submitted" }
+      },
+      "required": ["name", "age", "city", "bio", "status", "createdAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Profile category (e.g., location or interest)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Category name" },
+        "slug": { "type": "string", "description": "URL-friendly slug" }
+      },
+      "required": ["name", "slug"]
+    }
+  },
+  "firestore": {
+    "/profiles/{profileId}": {
+      "schema": "Profile",
+      "description": "Collection of dating profiles"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Available categories for the menu"
+    },
+    "/admins/{adminId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string", "enum": ["admin"] }
+        }
+      },
+      "description": "Admin users list"
+    }
+  }
+}

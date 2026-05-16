@@ -1,0 +1,6 @@
+{
+  "name": "OPRA MIXES",
+  "description": "Premium Zimbabwe and South Africa Dating platform. A newspaper-themed site for single mums, single ladies, and adult dating in the region.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

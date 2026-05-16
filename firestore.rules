@@ -1,0 +1,104 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      // Logic requires set_up_firebase to have added the admin UID to /admins/{uid}
+      // Or we can bootstrap it if we have the user email.
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validations ---
+
+    function isValidProfile(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.age is number && data.age >= 18 && data.age <= 120
+        && data.gender is string && data.gender.size() <= 50
+        && data.city is string && data.city.size() <= 100
+        && data.bio is string && data.bio.size() <= 5000
+        && data.status in ['pending', 'approved']
+        && (data.interests == null || data.interests is list)
+        && (data.photoUrl == null || data.photoUrl is string)
+        && data.authorId is string
+        && data.createdAt is timestamp;
+    }
+
+    function isValidCategory(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 50
+        && data.slug is string && data.slug.size() > 0 && data.slug.size() <= 50;
+    }
+
+    // --- Collections ---
+
+    // Profiles
+    match /profiles/{profileId} {
+      allow get: if (existing().status == 'approved') 
+                  || (isSignedIn() && (existing().authorId == request.auth.uid || isAdmin()));
+      
+      allow list: if (resource.data.status == 'approved')
+                  || (isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin()));
+
+      allow create: if isSignedIn() 
+                    && isValidProfile(incoming())
+                    && incoming().status == 'pending'
+                    && incoming().authorId == request.auth.uid
+                    && incoming().createdAt == request.time;
+
+      allow update: if isSignedIn() && (
+        // Admin Update (Approval/Edit)
+        (isAdmin() && isValidProfile(incoming())) ||
+        // User Update (Only if pending and owner)
+        (existing().authorId == request.auth.uid && existing().status == 'pending' && isValidProfile(incoming()) && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'age', 'gender', 'city', 'bio', 'interests', 'photoUrl'])
+          && incoming().authorId == existing().authorId
+          && incoming().status == 'pending'
+          && incoming().createdAt == existing().createdAt
+        ))
+      );
+
+      allow delete: if isAdmin() || (isSignedIn() && existing().authorId == request.auth.uid && existing().status == 'pending');
+    }
+
+    // Categories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Admins (Read-only for self, write only via console/admin tool)
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && request.auth.uid == adminId;
+      allow create: if isSignedIn() 
+                    && request.auth.uid == adminId 
+                    && request.auth.token.email == 'admin@bluesate.com';
+      allow update, delete: if false; // Must be managed via console once created
+    }
+  }
+}
